@@ -1,0 +1,198 @@
+﻿@page "/kisiler"
+@using Rehberv2.Shared
+@inject HttpClient Http
+@using System.Reflection
+@inject IToastService ToastService
+@inject NavigationManager NavigationManager
+
+<h3>Rehber</h3>
+
+<div class="row">
+    <div class="col-md-4">
+        <form>
+            <div class="input-group">
+                <span class="input-group-text">İsim</span>
+                <input type="text" required class="form-control" @bind-value="kayitEklemeModeli.isim" />
+            </div>
+            <div class="input-group my-3">
+                <span class="input-group-text">Soyisim</span>
+                <input type="text" required class="form-control" @bind-value="kayitEklemeModeli.soyisim" />
+            </div>
+            <div class="input-group my-3">
+                <span class="input-group-text">Cep Telefonu</span>
+                <input type="text" required class="form-control" @bind-value="kayitEklemeModeli.cepTel" />
+            </div>
+            <div class="input-group my-3">
+                <span class="input-group-text">İş Telefonu</span>
+                <input type="text" required class="form-control" @bind-value="kayitEklemeModeli.isTel" />
+            </div>
+            <div class="input-group my-3">
+                <span class="input-group-text">Email</span>
+                <input type="text" required class="form-control" @bind-value="kayitEklemeModeli.email" />
+            </div>
+            <button class="btn btn-success my-5" type="button" @onclick="kayitEkle2">Ekle</button>
+        </form>
+    </div>
+    <div class="col-md-8">
+        @if (cekRehber == null)
+        {
+            <p><em>Yükleniyor...</em></p>
+        }
+        else
+        {
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th>İsim</th>
+                        <th>Soyisim</th>
+                        <th>Cep Telefonu</th>
+                        <th>İş Telefonu</th>
+                        <th>Email</th>
+                        <th>Güncelle</th>
+                        <th>Sil</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var kisi in cekRehber)
+                    {
+                        <tr>
+                            <td><input type="text" class="form-control" value="@kisi.isim" @onchange="@((ChangeEventArgs e) => inputKaydet(e, kisi, "isim"))" /></td>
+                            <td><input type="text" class="form-control" value="@kisi.soyisim" @onchange="@((ChangeEventArgs e) => inputKaydet(e, kisi, "soyisim"))" /></td>
+                            <td><input type="text" class="form-control" value="@kisi.cepTel" @onchange="@((ChangeEventArgs e) => inputKaydet(e, kisi, "cepTel"))" /></td>
+                            <td><input type="text" class="form-control" value="@kisi.isTel" @onchange="@((ChangeEventArgs e) => inputKaydet(e, kisi, "isTel"))" /></td>
+                            <td><input type="text" class="form-control" value="@kisi.email" @onchange="@((ChangeEventArgs e) => inputKaydet(e, kisi, "email"))" /></td>
+
+                            <td><button class="btn btn-warning" type="button" @onclick="@(() => kayitGuncelle2(kisi))">Güncelle</button></td>
+                            <td><button class="btn btn-danger" type="button" @onclick="@(() => kayitSil2(kisi))">Sil</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+</div>
+@code 
+{
+    private Rehber kayitEklemeModeli = new Rehber();
+    private List<Rehber> cekRehber;
+
+    protected override async Task OnInitializedAsync()
+    {
+        cekRehber = await Http.GetFromJsonAsync<List<Rehber>>("/api/rehber/Liste"); // Veri çekme için GET
+    }
+
+    public bool inputKontrol(Rehber kontrolEdilecekKisi)
+    {
+        if (!string.IsNullOrEmpty(kayitEklemeModeli.isim) && !string.IsNullOrEmpty(kayitEklemeModeli.soyisim) && !string.IsNullOrEmpty(kayitEklemeModeli.cepTel)
+        && !string.IsNullOrEmpty(kayitEklemeModeli.isTel) && !string.IsNullOrEmpty(kayitEklemeModeli.email))
+            return true;
+        else
+            return false;
+    }
+
+
+    public async Task kayitEkle2()
+    {
+        if (inputKontrol(kayitEklemeModeli) == true)
+        {
+            await Http.GetAsync($"/api/rehber/Ekle/{kayitEklemeModeli.isim}&{kayitEklemeModeli.soyisim}&{kayitEklemeModeli.cepTel}&{kayitEklemeModeli.isTel}&{kayitEklemeModeli.email}"); // Veri kaydetme için GET
+            await OnInitializedAsync();
+            ToastService.ShowSuccess("Rehbere eklendi.", "BAŞARILI");
+        }
+    }
+
+    public async Task kayitSil2(Rehber kisi)
+    {
+        await Http.GetAsync($"/api/rehber/Sil/{kisi.rehberID}"); // Veri silme için GET
+        await OnInitializedAsync();
+        ToastService.ShowError("Rehberden silindi.", "BAŞARILI");
+    }
+
+    public async Task kayitGuncelle2(Rehber kisi)
+    {
+        if (!string.IsNullOrEmpty(kisi.isim) && !string.IsNullOrEmpty(kisi.soyisim) && !string.IsNullOrEmpty(kisi.cepTel) && !string.IsNullOrEmpty(kisi.isTel) && !string.IsNullOrEmpty(kisi.email))
+        {
+            var response = await Http.PostAsJsonAsync<Rehber>("/api/rehber/duzelt", kisi); // Güncelleme için POST
+
+            bool eklendiMi = await response.Content.ReadFromJsonAsync<bool>();
+            if (eklendiMi == true)
+            {
+                ToastService.ShowSuccess("Rehbere güncellendi.", "BAŞARILI");
+                await OnInitializedAsync();
+            }
+            else
+            {
+                ToastService.ShowError("Rehberde bu isim ve soyisimle kayıtlı kullanıcı zaten mevcut.", "Hata");
+            }
+        }
+        else
+        {
+            ToastService.ShowError("Boş alan bırakılamaz!", "Hata");
+        }
+    }
+
+    public async Task kayitEkle()
+    {
+
+        if (inputKontrol(kayitEklemeModeli) == true)
+    {
+            var response = await Http.PostAsJsonAsync<Rehber>("/api/rehber", kayitEklemeModeli); // Ekleme için POST
+
+            bool eklendiMi = await response.Content.ReadFromJsonAsync<bool>();
+            if (eklendiMi == true)
+            {
+                ToastService.ShowSuccess("Rehbere eklendi.", "BAŞARILI");
+                await OnInitializedAsync();
+            }
+            else
+            {
+                ToastService.ShowError("Rehberde bu isim ve soyisimle kayıtlı kullanıcı zaten mevcut.", "Hata");
+            }
+        }
+        else
+        {
+            ToastService.ShowError("Boş alan bırakılamaz!", "Hata");
+        }
+
+        ToastService.ShowError("Rehberden kayıt silindi.", "BAŞARILI");
+    }
+
+    public void inputKaydet(ChangeEventArgs e, Rehber inputKisi, string inputAdi)
+    {
+        PropertyInfo pinfo = typeof(Rehber).GetProperty(inputAdi);
+        pinfo.SetValue(inputKisi, e.Value);
+    }
+
+    public async Task kayitGuncelle(Rehber kisi)
+    {
+        if (!string.IsNullOrEmpty(kisi.isim) && !string.IsNullOrEmpty(kisi.soyisim) && !string.IsNullOrEmpty(kisi.cepTel) && !string.IsNullOrEmpty(kisi.isTel) && !string.IsNullOrEmpty(kisi.email))
+        {
+            var response = await Http.PutAsJsonAsync<Rehber>($"/api/rehber/{kisi.rehberID}", kisi); // Veri Güncellemek için PUT
+            bool guncellendiMi = await response.Content.ReadFromJsonAsync<bool>();
+
+            if (guncellendiMi == true)
+            {
+                ToastService.ShowSuccess("Rehberdeki kayıt güncellendi.", "BAŞARILI");
+            }
+            else
+            {
+                ToastService.ShowError("Rehberde bu isim ve soyisimle kayıtlı kullanıcı zaten mevcut.", "Hata");
+            }
+        }
+        else
+        {
+            ToastService.ShowError("Boş alan bırakılamaz.", "Hata");
+        }
+        await OnInitializedAsync();
+    }
+
+    public async Task kayitSil(Rehber kisi)
+    {
+        await Http.DeleteAsync($"/api/rehber/{kisi.rehberID}"); // Veri Silmek için DELETE
+
+        cekRehber.Remove(kisi);
+
+        ToastService.ShowError("Rehberden kayıt silindi.", "BAŞARILI");
+    }
+
+}
